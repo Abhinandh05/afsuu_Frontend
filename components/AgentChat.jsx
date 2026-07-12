@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
+import rehypeHighlight from "rehype-highlight";
 import { runAgent, getToken, ApiError } from "../lib/api";
+import "highlight.js/styles/github-dark.css";
 
 /**
  * Reusable agent chat UI for Research / Finance / Analytics / Coding / Email agents.
@@ -15,6 +17,7 @@ export default function AgentChat({
   placeholder = "Enter your topic or task…",
   inputLabel = "Topic",
   payloadKey = "topic",
+  maxChars = 500,
 }) {
   const router = useRouter();
   const [input, setInput] = useState("");
@@ -22,7 +25,6 @@ export default function AgentChat({
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
-  const maxChars = 500;
   const trimmed = input.trim();
   const canSubmit = !loading && trimmed.length >= 3 && trimmed.length <= maxChars;
 
@@ -104,7 +106,7 @@ export default function AgentChat({
         <div className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-[#11141d] px-4 py-4 text-zinc-300">
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
           <p className="text-sm">
-            Researching… this can take up to a minute
+            Working… this can take up to a couple of minutes
           </p>
         </div>
       )}
@@ -127,8 +129,8 @@ export default function AgentChat({
           <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide mb-3">
             Result
           </h3>
-          <div className="prose prose-invert prose-sm max-w-none text-zinc-200 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-1 [&_p]:my-2 [&_strong]:text-white">
-            <ReactMarkdown>{result}</ReactMarkdown>
+          <div className="prose prose-invert prose-sm max-w-none text-zinc-200 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-1 [&_p]:my-2 [&_strong]:text-white [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-[#0d1117] [&_pre]:p-4 [&_code]:font-mono [&_code]:text-sm">
+            <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{result}</ReactMarkdown>
           </div>
         </div>
       )}

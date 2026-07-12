@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import ReactMarkdown from "react-markdown";
+import DashboardShell from "../../components/DashboardShell";
 import { API_BASE, ApiError, getToken, runAgent } from "../../lib/api";
 
 const STATUS_STYLES = {
@@ -15,7 +15,6 @@ const STATUS_STYLES = {
 
 export default function DocumentsPage() {
   const router = useRouter();
-  const [ready, setReady] = useState(false);
   const [docs, setDocs] = useState([]);
   const [listError, setListError] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -51,14 +50,8 @@ export default function DocumentsPage() {
   }, [authRedirect]);
 
   useEffect(() => {
-    const token = getToken();
-    if (!token) {
-      router.replace("/login");
-      return;
-    }
-    setReady(true);
     loadDocs();
-  }, [router, loadDocs]);
+  }, [loadDocs]);
 
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -92,7 +85,6 @@ export default function DocumentsPage() {
         `Uploaded “${body.data.filename}” — status: ${body.data.status}. Indexing runs in the background.`
       );
       await loadDocs();
-      // Refresh again shortly so indexed status can appear
       setTimeout(() => loadDocs(), 4000);
     } catch (err) {
       setUploadMsg(err instanceof ApiError ? err.message : "Upload failed");
@@ -136,26 +128,9 @@ export default function DocumentsPage() {
     }
   };
 
-  if (!ready) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0b0e14]">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-[#0b0e14] text-white">
-      <header className="border-b border-zinc-800 bg-[#11141d]">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
-          <Link href="/" className="text-sm text-zinc-400 hover:text-white transition-colors">
-            ← Back to dashboard
-          </Link>
-          <span className="text-sm font-medium text-zinc-300">AI Business OS</span>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-3xl px-6 py-10 space-y-10">
+    <DashboardShell>
+      <div className="mx-auto max-w-3xl space-y-10">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Documents & RAG</h1>
           <p className="mt-2 text-zinc-400">
@@ -164,7 +139,6 @@ export default function DocumentsPage() {
           </p>
         </div>
 
-        {/* Upload */}
         <section className="space-y-3">
           <h2 className="text-lg font-semibold">Upload</h2>
           <label className="flex flex-col gap-2 text-sm text-zinc-400">
@@ -181,7 +155,6 @@ export default function DocumentsPage() {
           {uploadMsg && <p className="text-sm text-zinc-300">{uploadMsg}</p>}
         </section>
 
-        {/* List */}
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Your documents</h2>
@@ -219,7 +192,6 @@ export default function DocumentsPage() {
           </ul>
         </section>
 
-        {/* Query */}
         <section className="space-y-4">
           <h2 className="text-lg font-semibold">Ask your documents</h2>
           <form onSubmit={handleQuery} className="space-y-3">
@@ -287,7 +259,7 @@ export default function DocumentsPage() {
             </div>
           )}
         </section>
-      </main>
-    </div>
+      </div>
+    </DashboardShell>
   );
 }
