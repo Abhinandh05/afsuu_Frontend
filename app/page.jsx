@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import DashboardShell from "../components/DashboardShell";
+import { ApiError, getToken, runAgent } from "../lib/api";
+import { formatRelativeTime } from "../lib/time";
 
 export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -55,7 +57,56 @@ export default function Home() {
   return <LandingPage />;
 }
 
+const AGENT_BADGE = {
+  research: "bg-violet-500/15 text-violet-300 border-violet-500/30",
+  finance: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+  analytics: "bg-sky-500/15 text-sky-300 border-sky-500/30",
+  coding: "bg-orange-500/15 text-orange-300 border-orange-500/30",
+  email: "bg-pink-500/15 text-pink-300 border-pink-500/30",
+  ppt: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+  manager: "bg-blue-500/15 text-blue-300 border-blue-500/30",
+};
+
+const STATUS_COLOR = {
+  pending: "text-zinc-400",
+  running: "text-amber-400",
+  completed: "text-green-400",
+  failed: "text-red-400",
+};
+
 function DashboardContent({ user }) {
+  const [recentTasks, setRecentTasks] = useState([]);
+  const [recentLoading, setRecentLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const token = getToken();
+      if (!token) {
+        setRecentLoading(false);
+        return;
+      }
+      try {
+        const data = await runAgent("/api/v1/tasks?limit=5", null, token, "GET");
+        if (!cancelled) setRecentTasks(data?.tasks || []);
+      } catch (err) {
+        if (!cancelled) {
+          console.error(
+            "Recent tasks failed:",
+            err instanceof ApiError ? err.message : err
+          );
+          setRecentTasks([]);
+        }
+      } finally {
+        if (!cancelled) setRecentLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <>
       {/* Welcome Banner */}
@@ -113,60 +164,93 @@ function DashboardContent({ user }) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-[#11141d] rounded-2xl border border-zinc-800 overflow-hidden flex flex-col">
           <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
-            <h2 className="text-lg font-bold">Recent Tasks</h2>
-            <button className="text-sm text-blue-400 hover:text-blue-300">View All</button>
+            <h2 className="text-lg font-bold">Recent Activity</h2>
+            <Link href="/history" className="text-sm text-blue-400 hover:text-blue-300">
+              View All
+            </Link>
           </div>
           <div className="flex-1 overflow-y-auto">
-            <ul className="divide-y divide-zinc-800/50">
-              {[
-                { id: 1021, time: "2 min ago" },
-                { id: 1022, time: "15 min ago" },
-                { id: 1023, time: "32 min ago" },
-                { id: 1024, time: "1 hr ago" },
-              ].map((task) => (
-                <li
-                  key={task.id}
-                  className="p-4 sm:p-6 hover:bg-zinc-800/20 transition-colors flex items-center justify-between group"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-[#1a1f2e] border border-zinc-700 flex items-center justify-center group-hover:border-blue-500/50 transition-colors">
-                      <svg
-                        className="w-5 h-5 text-zinc-400 group-hover:text-blue-400"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                        />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-sm text-zinc-200">Data Extraction Task #{task.id}</p>
-                      <p className="text-xs text-zinc-500 mt-1">Processed by Agent Alpha</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs font-medium text-green-400">Completed</span>
-                    <p className="text-xs text-zinc-500 mt-1">{task.time}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            {recentLoading ? (
+              <div className="p-8 flex items-center justify-center gap-2 text-sm text-zinc-400">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                Loading recent tasks…
+              </div>
+            ) : recentTasks.length === 0 ? (
+              <div className="p-8 text-center text-sm text-zinc-500">
+                No tasks yet. Run an agent to see activity here.
+              </div>
+            ) : (
+              <ul className="divide-y divide-zinc-800/50">
+                {recentTasks.map((task) => (
+                  <li key={task.id}>
+                    <Link
+                      href="/history"
+                      className="p-4 sm:p-6 hover:bg-zinc-800/20 transition-colors flex items-center justify-between group block"
+                    >
+                      <div className="flex items-center gap-4 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-[#1a1f2e] border border-zinc-700 flex items-center justify-center group-hover:border-blue-500/50 transition-colors flex-shrink-0">
+                          <svg
+                            className="w-5 h-5 text-zinc-400 group-hover:text-blue-400"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                            />
+                          </svg>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm text-zinc-200 truncate">
+                            {task.prompt}
+                          </p>
+                          <p className="text-xs text-zinc-500 mt-1 flex items-center gap-2">
+                            <span
+                              className={`inline-flex rounded border px-1.5 py-0.5 capitalize ${
+                                AGENT_BADGE[task.agent_type] ||
+                                "bg-zinc-700/40 text-zinc-300 border-zinc-600/40"
+                              }`}
+                            >
+                              {task.agent_type}
+                            </span>
+                            <span>#{task.id}</span>
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0 ml-4">
+                        <span
+                          className={`text-xs font-medium capitalize ${
+                            STATUS_COLOR[task.status] || "text-zinc-400"
+                          }`}
+                        >
+                          {task.status}
+                        </span>
+                        <p className="text-xs text-zinc-500 mt-1">
+                          {formatRelativeTime(task.created_at)}
+                        </p>
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
 
         <div className="bg-[#11141d] rounded-2xl border border-zinc-800 p-6">
           <h2 className="text-lg font-bold mb-6">Quick Actions</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <ActionCard title="Manager Agent" desc="Orchestrate all specialists on one complex request" icon="bot" color="blue" href="/agents/manager" />
             <ActionCard title="Research Agent" desc="Find and summarize business topics" icon="lightning" color="purple" href="/agents/research" />
             <ActionCard title="Finance Agent" desc="Credit risk + financial analysis" icon="chart" color="green" href="/agents/finance" />
             <ActionCard title="Analytics Agent" desc="Churn + sales forecast insights" icon="lightning" color="blue" href="/agents/analytics" />
             <ActionCard title="Coding Agent" desc="Write and test Python in a local sandbox" icon="cog" color="orange" href="/agents/coding" />
+            <ActionCard title="Email Agent" desc="Draft emails with tone analysis" icon="lightning" color="blue" href="/agents/email" />
             <ActionCard title="Documents" desc="Upload files and ask with RAG" icon="cog" color="orange" href="/documents" />
+            <ActionCard title="Task History" desc="Browse past agent runs" icon="cog" color="blue" href="/history" />
           </div>
         </div>
       </div>
